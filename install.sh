@@ -67,7 +67,15 @@ done
 # ---------------------------------------------------------------- script
 
 # Do clone quando existe ao lado; da rede quando veio por curl.
-HERE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || printf '')
+#
+# Sob `curl | bash` (e `bash -s`) o BASH_SOURCE não existe, e com `set -u` isso
+# aborta a linha. Vazio é a resposta certa ali — mas tem que ser vazio de
+# propósito: `dirname ""` devolve ".", e aí um workspace.sh qualquer no diretório
+# de onde a pessoa rodou o curl viraria a fonte da instalação.
+HERE=''
+if [ -n "${BASH_SOURCE[0]:-}" ] && [ -f "${BASH_SOURCE[0]}" ]; then
+  HERE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+fi
 
 fetch() {
   local rel=$1 dest=$2

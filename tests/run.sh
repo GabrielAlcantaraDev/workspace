@@ -16,9 +16,10 @@ for t in "$HERE"/test-*.sh; do
   nome=$(basename "$t")
   case $nome in
   test-pin-hook.sh) alvo="$BASE/claude/pin-hook.sh" ;;
+  test-install.sh) alvo="$BASE" ;; # este recebe a raiz, nao um script
   *) alvo="$BASE/workspace.sh" ;;
   esac
-  [ -f "$alvo" ] || { printf '  PULADO  %-30s (nao achei %s)\n' "$nome" "$alvo"; continue; }
+  [ -e "$alvo" ] || { printf '  PULADO  %-30s (nao achei %s)\n' "$nome" "$alvo"; continue; }
   printf '  %-30s' "$nome"
   if saida=$(bash "$t" "$alvo" 2>&1); then
     printf 'ok  (%s asserçoes)\n' "$(printf '%s' "$saida" | grep -c '^  ok')"
