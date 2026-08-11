@@ -42,7 +42,31 @@ if [ "${BASH_VERSINFO[0]}" -lt 4 ] || { [ "${BASH_VERSINFO[0]}" -eq 4 ] && [ "${
   exit 1
 fi
 
-VERSION="1.0.0"
+# Git Bash e Cygwin trazem bash, e é exatamente por isso que a recusa precisa
+# ser explícita: ter bash não basta. Quase tudo que importa aqui atravessa a
+# fronteira do bash e cai num programa do Windows, que não entende caminho
+# POSIX — o `.code-workspace` vai para o VSCode, o bind mount vai para o Docker,
+# e `/c/Users/...` não significa nada para nenhum dos dois. Meio funcionando é
+# pior do que não instalar, porque o estrago aparece depois do worktree criado.
+#
+# No WSL isto é Linux de verdade (uname diz Linux) e passa direto, que é o
+# caminho recomendado para quem está no Windows.
+case "$(uname -s 2>/dev/null)" in
+MINGW* | MSYS* | CYGWIN*)
+  printf '\n  ✗ Git Bash e Cygwin não servem para esta ferramenta.\n\n' >&2
+  printf '    Ela entrega caminho para o VSCode e para o Docker, e o caminho\n' >&2
+  printf '    do Git Bash (/c/Users/...) não é entendido por nenhum dos dois.\n\n' >&2
+  printf '    No Windows, use o WSL:\n\n' >&2
+  printf '      1. No PowerShell, como administrador:  wsl --install\n' >&2
+  printf '      2. Abra o Ubuntu que ele instalar\n' >&2
+  printf '      3. Rode a instalação lá dentro, e clone seus repos lá dentro\n\n' >&2
+  printf '    Repo clonado no disco do Windows e usado pelo WSL fica lento e\n' >&2
+  printf '    quebra permissão — vale manter tudo dentro do WSL.\n\n' >&2
+  exit 1
+  ;;
+esac
+
+VERSION="1.0.1"
 RAW_URL="${WORKSPACE_RAW_URL:-https://raw.githubusercontent.com/GabrielAlcantaraDev/workspace/main}"
 
 die() { printf '\n  ✗ %s\n' "$*" >&2; exit 1; }
@@ -2719,6 +2743,17 @@ cmd_doctor() {
 
   printf '  Essencial\n'
   printf '    %s bash %s\n' "$ok" "$BASH_VERSION"
+  # Quem chegou aqui no Windows está no WSL (o resto foi recusado na partida),
+  # e vale confirmar em voz alta: é o ponto em que mais se erra na instalação.
+  if [ -r /proc/version ] && grep -qi microsoft /proc/version 2>/dev/null; then
+    printf '    %s WSL — é o caminho certo no Windows\n' "$ok"
+    case "$(pwd -P 2>/dev/null)" in
+    /mnt/[a-z]/*)
+      printf '    %s você está num disco do Windows (/mnt/...) — lento e com problema de\n' "$bad"
+      printf '        permissão. Mantenha repositórios e workspaces dentro do WSL (~/).\n'
+      ;;
+    esac
+  fi
   if command -v git >/dev/null 2>&1; then
     printf '    %s git %s\n' "$ok" "$(git --version | awk '{print $3}')"
   else

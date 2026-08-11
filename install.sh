@@ -45,6 +45,23 @@ printf '\n  Instalando workspace\n\n'
 
 # ---------------------------------------------------------------- pré-requisitos
 
+# Antes de tudo: Git Bash tem bash, git e curl, e passaria em todas as checagens
+# seguintes para entregar uma instalação que quebra no primeiro `create`. O
+# motivo está no cabeçalho do workspace.sh — caminho POSIX não atravessa para o
+# VSCode nem para o Docker do Windows.
+case "$(uname -s 2>/dev/null)" in
+MINGW* | MSYS* | CYGWIN*)
+  printf '  ✗ Git Bash e Cygwin não servem para esta ferramenta.\n\n' >&2
+  printf '    No Windows, use o WSL:\n\n' >&2
+  printf '      1. No PowerShell, como administrador:  wsl --install\n' >&2
+  printf '      2. Abra o Ubuntu que ele instalar\n' >&2
+  printf '      3. Rode esta mesma instalação lá dentro\n\n' >&2
+  printf '    Mantenha também os repositórios dentro do WSL: repo no disco do\n' >&2
+  printf '    Windows fica lento e dá problema de permissão.\n\n' >&2
+  exit 1
+  ;;
+esac
+
 command -v git >/dev/null 2>&1 || bad "git não está no PATH — instale o git antes"
 command -v curl >/dev/null 2>&1 || bad "curl não está no PATH"
 

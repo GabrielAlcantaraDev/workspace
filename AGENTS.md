@@ -3,6 +3,28 @@
 Você recebeu o link deste repositório e a pessoa quer o `workspace` instalado e
 funcionando. Siga isto na ordem. São dois comandos e uma verificação.
 
+## 0. Se a máquina for Windows
+
+Confira antes de qualquer coisa:
+
+```bash
+uname -s
+```
+
+- `Linux` ou `Darwin` → siga para o passo 1.
+- `Linux` com `microsoft` em `/proc/version` → é WSL, siga para o passo 1.
+- `MINGW*`, `MSYS*` ou `CYGWIN*` → **pare**. É Git Bash ou Cygwin, e a
+  ferramenta recusa instalar ali (caminho POSIX não atravessa para o VSCode nem
+  para o Docker do Windows). Diga à pessoa para instalar o WSL:
+
+  ```powershell
+  wsl --install
+  ```
+
+  No PowerShell como administrador, uma vez só. Depois ela abre o Ubuntu e você
+  recomeça deste arquivo lá dentro. Avise também que os repositórios devem
+  ficar dentro do WSL (`~/dev`), não em `/mnt/c/...`.
+
 ## 1. Instale
 
 ```bash

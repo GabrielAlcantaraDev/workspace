@@ -58,6 +58,25 @@ Prefere ler antes de rodar? O instalador é um arquivo só, [install.sh](install
 
 Nada mais. O resto é bash puro.
 
+### No Windows, use o WSL
+
+```powershell
+wsl --install        # PowerShell como administrador, uma vez só
+```
+
+Abra o Ubuntu que ele instalar e rode a instalação **lá dentro**. Do WSL para
+frente é tudo igual ao Linux.
+
+**Git Bash e Cygwin não servem, e a ferramenta recusa instalar neles.** Não é
+implicância: quase tudo aqui atravessa a fronteira do bash e cai num programa
+do Windows. O `.code-workspace` vai para o VSCode, o bind mount vai para o
+Docker — e `/c/Users/...` não significa nada para nenhum dos dois. Instalar
+mesmo assim daria uma ferramenta que só falha depois do worktree criado.
+
+Mantenha também **os repositórios dentro do WSL** (`~/dev`, e não
+`/mnt/c/Users/...`). Repo no disco do Windows acessado pelo WSL fica lento e dá
+problema de permissão no git. O `doctor` avisa se detectar isso.
+
 ## Comandos
 
 ```
