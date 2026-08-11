@@ -48,7 +48,7 @@ printf '\n== o script deve limpar a pasta orfa (sem .workspace) ==\n'
 out=$(WORKSPACE_ROOTS="$EMPTY" WORKSPACES_ROOT="$WSROOT" XDG_CONFIG_HOME="$T/.config" bash "$SCRIPT" prune 2>&1)
 check "a pasta do workspace foi removida" "removida" \
   "$([ -e "$WS" ] && echo sobrou || echo removida)"
-check "nao manda o Gabriel apagar na mao" "sem instrucao manual" \
+check "nao manda apagar na mao" "sem instrucao manual" \
   "$(printf '%s' "$out" | grep -q 'Apague com: rm -rf' && echo 'manda rm -rf na mao' || echo 'sem instrucao manual')"
 
 printf '\n-- saida do prune --\n%s\n' "$out" | sed 's/^/  | /'
