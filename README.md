@@ -151,15 +151,34 @@ Toda variável de ambiente ganha da config.
 Escolhe sozinho o primeiro que achar no PATH, e pergunta uma vez quando há mais
 de um. Trocar depois: `workspace editor <comando>`.
 
-## Claude Code (opcional)
+## Agentes (opcional)
 
-O instalador oferece instalar a skill. Com ela, `/workspace` no chat faz tudo
-acima, e `/workspace use <demanda>` **prende aquela aba de chat na demanda**:
-um hook passa a negar escrita fora dela, então o agente não mexe no repositório
-errado quando você tem quatro conversas abertas.
+O instalador procura os agentes que você tem e oferece ensinar a ferramenta a
+eles, para você pedir em linguagem natural em vez de decorar comando. Ele só
+mexe no que já existe na máquina:
 
-Quem não usa Claude Code ignora essa parte — o comando de terminal é o mesmo, e
-não depende dela em nada.
+| Agente | O que ele instala | Onde |
+|---|---|---|
+| Claude Code | a skill `/workspace` + hooks de fixação de aba | `~/.claude/skills/workspace/` |
+| Kiro | um steering carregado sempre | `~/.kiro/steering/workspace.md` |
+| Codex | um bloco delimitado no AGENTS.md global | `~/.codex/AGENTS.md` |
+
+Os três compartilham o mesmo texto de instrução ([agents/workspace.md](agents/workspace.md)),
+então não divergem com o tempo. O `workspace update` atualiza junto o que estiver
+instalado.
+
+**O AGENTS.md do Codex é seu, e continua sendo.** O bloco entra entre marcadores
+`<!-- workspace:inicio -->` e `<!-- workspace:fim -->`; reinstalar troca só o
+miolo, e o que estiver antes e depois nunca é tocado. Para remover, apague o
+bloco.
+
+**Só o Claude Code ganha a fixação de aba.** `/workspace use <demanda>` prende
+aquela conversa na demanda, e um hook passa a negar escrita fora dela — útil
+quando você tem quatro conversas abertas. Isso depende de mecanismo que só
+existe no Claude Code.
+
+Quem não usa agente nenhum ignora essa seção: o comando de terminal é a
+ferramenta inteira e não depende disso em nada.
 
 ## Licença
 

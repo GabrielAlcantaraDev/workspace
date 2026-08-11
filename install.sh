@@ -18,13 +18,16 @@ BIN_DIR="${WORKSPACE_BIN_DIR:-$HOME/.local/bin}"
 SKILL_DIR="$HOME/.claude/skills/workspace"
 SETTINGS="$HOME/.claude/settings.json"
 
-WITH_CLAUDE=ask
+KIRO_STEERING="$HOME/.kiro/steering/workspace.md"
+CODEX_AGENTS="$HOME/.codex/AGENTS.md"
+
+WITH_AGENTS=ask
 for arg in "$@"; do
   case $arg in
-  --with-claude) WITH_CLAUDE=yes ;;
-  --no-claude) WITH_CLAUDE=no ;;
+  --with-agents | --with-claude) WITH_AGENTS=yes ;; # --with-claude: nome antigo
+  --no-agents | --no-claude) WITH_AGENTS=no ;;
   -h | --help)
-    printf 'uso: install.sh [--with-claude|--no-claude]\n'
+    printf 'uso: install.sh [--with-agents|--no-agents]\n'
     exit 0
     ;;
   *)
@@ -130,6 +133,63 @@ esac
 
 # ---------------------------------------------------------------- Claude Code
 
+# ---- Kiro: arquivo de steering no nível do usuário.
+#
+# Ganha o frontmatter que o Kiro espera; o corpo é o mesmo dos outros agentes,
+# em agents/workspace.md, para os três não divergirem com o tempo.
+install_kiro() {
+  local body
+  [ -d "$HOME/.kiro" ] || return 1
+  body=$(mktemp)
+  fetch agents/workspace.md "$body" || { rm -f "$body"; return 1; }
+  mkdir -p "$(dirname "$KIRO_STEERING")"
+  {
+    printf -- '---\n'
+    printf 'name: workspace\n'
+    printf 'description: Ambientes de código isolados por demanda (git worktree por repositório, dependências, portas e editor). Use quando pedirem um workspace, um ambiente para desenvolver, mexer em duas demandas em paralelo, ou listar/subir/parar/derrubar ambientes.\n'
+    printf 'inclusion: always\n'
+    printf -- '---\n\n'
+    cat "$body"
+  } > "$KIRO_STEERING"
+  rm -f "$body"
+}
+
+# ---- Codex: bloco delimitado dentro do AGENTS.md global.
+#
+# Este arquivo é da pessoa e costuma ter instrução dela dentro. Sobrescrever
+# seria apagar trabalho alheio — então o bloco entra entre marcadores, e uma
+# reinstalação troca só o que está entre eles. O resto do arquivo nunca é lido
+# nem reescrito fora dessa faixa.
+install_codex() {
+  local body ini fim tmp
+  [ -d "$HOME/.codex" ] || return 1
+  ini='<!-- workspace:inicio -->'
+  fim='<!-- workspace:fim -->'
+  body=$(mktemp)
+  fetch agents/workspace.md "$body" || { rm -f "$body"; return 1; }
+
+  tmp=$(mktemp)
+  if [ -f "$CODEX_AGENTS" ] && grep -qF "$ini" "$CODEX_AGENTS"; then
+    # Troca só o miolo, preservando tudo antes e depois dos marcadores.
+    awk -v ini="$ini" -v fim="$fim" -v corpo="$body" '
+      $0 == ini { print; while ((getline linha < corpo) > 0) print linha; pulando = 1; next }
+      $0 == fim { pulando = 0 }
+      !pulando  { print }
+    ' "$CODEX_AGENTS" > "$tmp"
+  else
+    [ -f "$CODEX_AGENTS" ] && cat "$CODEX_AGENTS" > "$tmp"
+    [ -s "$tmp" ] && printf '\n' >> "$tmp"
+    {
+      printf '%s\n' "$ini"
+      cat "$body"
+      printf '%s\n' "$fim"
+    } >> "$tmp"
+  fi
+  mkdir -p "$(dirname "$CODEX_AGENTS")"
+  cat "$tmp" > "$CODEX_AGENTS"
+  rm -f "$tmp" "$body"
+}
+
 install_skill_files() {
   mkdir -p "$SKILL_DIR"
   local f
@@ -216,33 +276,66 @@ PY
   mv "$t" "$SETTINGS"
 }
 
-if [ -d "$HOME/.claude" ]; then
-  if [ "$WITH_CLAUDE" = ask ]; then
+# Quais agentes existem nesta máquina. Só o que existe é oferecido: perguntar
+# sobre ferramenta que a pessoa não usa é ruído.
+achados=''
+[ -d "$HOME/.claude" ] && achados="$achados Claude Code,"
+[ -d "$HOME/.kiro" ] && achados="$achados Kiro,"
+[ -d "$HOME/.codex" ] && achados="$achados Codex,"
+achados=${achados%,}
+
+if [ -n "$achados" ]; then
+  if [ "$WITH_AGENTS" = ask ]; then
     resp=''
-    if [ -e /dev/tty ]; then
-      printf '\n  Achei o Claude Code aqui. Instalar a skill (/workspace no chat)\n'
-      printf '  e ligar os hooks de fixação de aba? [S/n] '
-      read -r resp < /dev/tty 2>/dev/null || resp=__sem_tty__
+    # Testa se dá para LER do tty antes de perguntar. `[ -e /dev/tty ]` não
+    # basta: o arquivo existe em sessão sem terminal de controle, e aí a
+    # pergunta ia para a tela seguida do erro de abertura — pergunta que
+    # ninguém pode responder é pior do que pergunta nenhuma.
+    if { : < /dev/tty; } 2>/dev/null; then
+      printf '\n  Achei aqui:%s\n' "$achados"
+      printf '  Ensinar a ferramenta a eles, para você pedir em linguagem natural? [S/n] '
+      { read -r resp < /dev/tty; } 2>/dev/null || resp=__sem_tty__
     else
       resp=__sem_tty__
     fi
     # Sem terminal (agente, CI, `curl | bash` sem tty) a resposta não vem. Aí não
-    # se assume nada sobre o settings.json de ninguém — mas também não se sai
-    # calado, senão a pessoa fica sem entender por que o /workspace não apareceu.
+    # se assume nada sobre a config de ninguém — mas também não se sai calado,
+    # senão a pessoa fica sem entender por que o agente não conhece o comando.
     if [ "$resp" = __sem_tty__ ]; then
-      WITH_CLAUDE=no
-      printf '\n  ⚠  Claude Code detectado, mas não há terminal para eu perguntar.\n'
-      printf '     Instalei só o comando. Para acrescentar a skill e os hooks:\n'
-      printf '       curl -fsSL %s/install.sh | bash -s -- --with-claude\n' "$RAW_URL"
+      WITH_AGENTS=no
+      printf '\n  ⚠  Achei%s, mas não há terminal para eu perguntar.\n' "$achados"
+      printf '     Instalei só o comando. Para ensinar aos agentes:\n'
+      printf '       curl -fsSL %s/install.sh | bash -s -- --with-agents\n' "$RAW_URL"
     else
-      case ${resp:-s} in [nN]*) WITH_CLAUDE=no ;; *) WITH_CLAUDE=yes ;; esac
+      case ${resp:-s} in [nN]*) WITH_AGENTS=no ;; *) WITH_AGENTS=yes ;; esac
     fi
   fi
 
-  if [ "$WITH_CLAUDE" = yes ]; then
+  if [ "$WITH_AGENTS" = yes ]; then
     printf '\n'
+
+    if [ -d "$HOME/.kiro" ]; then
+      if install_kiro; then
+        ok "Kiro: steering em $(printf '%s' "$KIRO_STEERING" | sed "s|$HOME|~|")"
+      else
+        printf '  ⚠  Kiro: não consegui escrever o steering\n'
+      fi
+    fi
+
+    if [ -d "$HOME/.codex" ]; then
+      if install_codex; then
+        ok "Codex: bloco em $(printf '%s' "$CODEX_AGENTS" | sed "s|$HOME|~|") (o resto do arquivo intacto)"
+      else
+        printf '  ⚠  Codex: não consegui escrever o AGENTS.md\n'
+      fi
+    fi
+  fi
+fi
+
+if [ -d "$HOME/.claude" ]; then
+  if [ "$WITH_AGENTS" = yes ]; then
     if install_skill_files; then
-      ok "skill em $(printf '%s' "$SKILL_DIR" | sed "s|$HOME|~|")"
+      ok "Claude Code: skill em $(printf '%s' "$SKILL_DIR" | sed "s|$HOME|~|")"
     else
       printf '  ⚠  não consegui baixar os arquivos da skill — o comando de terminal está instalado do mesmo jeito\n'
     fi

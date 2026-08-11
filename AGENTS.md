@@ -28,13 +28,18 @@ uname -s
 ## 1. Instale
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/GabrielAlcantaraDev/workspace/main/install.sh | bash -s -- --with-claude
+curl -fsSL https://raw.githubusercontent.com/GabrielAlcantaraDev/workspace/main/install.sh | bash -s -- --with-agents
 ```
 
-O `--with-claude` é obrigatório para você. Sem ele o instalador tenta perguntar
-se deve instalar a camada do Claude Code, não acha terminal na sua sessão e
-segue sem ela — a pessoa fica só com o comando de terminal, sem o `/workspace`
-no chat. Se ela **não** usa Claude Code, troque por `--no-claude`.
+O `--with-agents` é obrigatório para você. Sem ele o instalador tenta perguntar
+se deve ensinar a ferramenta aos agentes da máquina (Claude Code, Kiro, Codex),
+não acha terminal na sua sessão e segue sem isso — a pessoa fica só com o
+comando de terminal, e o agente dela continua sem conhecer o `workspace`. Se ela
+preferir não ter isso, troque por `--no-agents`.
+
+O instalador só mexe no que já existe: `~/.claude`, `~/.kiro` e `~/.codex`. No
+Codex ele acrescenta um bloco delimitado ao AGENTS.md global e preserva o resto
+do arquivo — não o sobrescreva por conta própria.
 
 Se o instalador avisar que `~/.local/bin` não está no PATH, adicione a linha que
 ele mostrar ao `~/.bashrc` ou `~/.zshrc` da pessoa e diga que é preciso abrir um

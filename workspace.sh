@@ -66,7 +66,7 @@ MINGW* | MSYS* | CYGWIN*)
   ;;
 esac
 
-VERSION="1.0.1"
+VERSION="1.1.0"
 RAW_URL="${WORKSPACE_RAW_URL:-https://raw.githubusercontent.com/GabrielAlcantaraDev/workspace/main}"
 
 die() { printf '\n  ✗ %s\n' "$*" >&2; exit 1; }
@@ -2835,21 +2835,40 @@ cmd_doctor() {
 
   claude_dir="$HOME/.claude"
   settings="$claude_dir/settings.json"
-  printf '\n  Claude Code (opcional)\n'
-  if [ ! -d "$claude_dir" ]; then
-    printf '    %s Claude Code não instalado — a ferramenta funciona igual pelo terminal\n' "$opt"
-  else
+  printf '\n  Agentes (opcional)\n'
+
+  local algum=0
+  if [ -d "$claude_dir" ]; then
+    algum=1
     if [ -f "$claude_dir/skills/workspace/SKILL.md" ]; then
-      printf '    %s skill instalada (/workspace no chat)\n' "$ok"
+      printf '    %s Claude Code: skill instalada (/workspace no chat)\n' "$ok"
     else
-      printf '    %s skill não instalada — rode o install.sh de novo para adicioná-la\n' "$opt"
+      printf '    %s Claude Code: sem a skill — rode o install.sh de novo com --with-agents\n' "$opt"
     fi
     if [ -f "$settings" ] && grep -q 'pin-hook.sh' "$settings" 2>/dev/null; then
-      printf '    %s hooks ligados (fixação da aba)\n' "$ok"
+      printf '    %s Claude Code: hooks ligados (fixação da aba)\n' "$ok"
     else
-      printf '    %s hooks não ligados — `use` dá o briefing, mas sem travar a aba\n' "$opt"
+      printf '    %s Claude Code: hooks não ligados — `use` dá o briefing, mas sem travar a aba\n' "$opt"
     fi
   fi
+  if [ -d "$HOME/.kiro" ]; then
+    algum=1
+    if [ -f "$HOME/.kiro/steering/workspace.md" ]; then
+      printf '    %s Kiro: steering instalado\n' "$ok"
+    else
+      printf '    %s Kiro: sem o steering — rode o install.sh de novo com --with-agents\n' "$opt"
+    fi
+  fi
+  if [ -d "$HOME/.codex" ]; then
+    algum=1
+    if [ -f "$HOME/.codex/AGENTS.md" ] && grep -qF '<!-- workspace:inicio -->' "$HOME/.codex/AGENTS.md" 2>/dev/null; then
+      printf '    %s Codex: bloco no AGENTS.md global\n' "$ok"
+    else
+      printf '    %s Codex: sem o bloco — rode o install.sh de novo com --with-agents\n' "$opt"
+    fi
+  fi
+  [ "$algum" -eq 1 ] ||
+    printf '    %s nenhum agente encontrado — a ferramenta funciona igual pelo terminal\n' "$opt"
   printf '\n'
 }
 
@@ -2890,8 +2909,11 @@ cmd_update() {
   rm -f "$tmp"
   printf '\n  Atualizado: %s → %s\n' "$VERSION" "$new"
 
-  # A camada Claude Code sai do mesmo repo e envelhece junto. Atualizar só o
-  # comando deixaria a SKILL.md descrevendo uma versão que não é mais esta.
+  # As camadas de agente saem do mesmo repo e envelhecem junto. Atualizar só o
+  # comando deixaria a instrução descrevendo uma versão que não é mais esta.
+  #
+  # Só é atualizado o que já está instalado: o update não é a hora de acrescentar
+  # integração que a pessoa não pediu.
   local skill="$HOME/.claude/skills/workspace" f t n=0
   if [ -d "$skill" ]; then
     for f in SKILL.md pin-hook.sh statusline.sh; do
@@ -2903,7 +2925,20 @@ cmd_update() {
       fi
       rm -f "$t"
     done
-    [ "$n" -gt 0 ] && printf '  Skill do Claude Code: %s arquivo(s) atualizado(s)\n' "$n"
+    [ "$n" -gt 0 ] && printf '  Claude Code: %s arquivo(s) atualizado(s)\n' "$n"
+  fi
+
+  # Kiro e Codex compartilham o corpo (agents/workspace.md) e o instalador é
+  # quem sabe embrulhar cada um — reinvocá-lo evita duplicar essa lógica aqui,
+  # e ele é idempotente por construção.
+  if [ -f "$HOME/.kiro/steering/workspace.md" ] ||
+    { [ -f "$HOME/.codex/AGENTS.md" ] && grep -qF '<!-- workspace:inicio -->' "$HOME/.codex/AGENTS.md" 2>/dev/null; }; then
+    t=$(mktemp)
+    if curl -fsSL "$RAW_URL/install.sh" -o "$t" 2>/dev/null && bash -n "$t" 2>/dev/null; then
+      WORKSPACE_BIN_DIR="$(dirname "$self")" bash "$t" --with-agents >/dev/null 2>&1 &&
+        printf '  Kiro/Codex: instrução atualizada\n'
+    fi
+    rm -f "$t"
   fi
   printf '\n'
 }

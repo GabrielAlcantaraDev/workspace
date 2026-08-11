@@ -68,7 +68,9 @@ H=$(nova_casa)
 out=$(cat "$INSTALL" | HOME="$H" XDG_CONFIG_HOME="$H/.config" WORKSPACE_RAW_URL="file://$BASE" \
   bash -s 2>&1)
 contem "avisa que nao havia terminal para perguntar" "não há terminal" "$out"
-contem "ensina como acrescentar depois" "--with-claude" "$out"
+contem "ensina como acrescentar depois" "--with-agents" "$out"
+nao_contem "nao imprime pergunta que ninguem pode responder" "[S/n]" "$out"
+nao_contem "nao vaza erro de /dev/tty" "/dev/tty" "$out"
 check "settings.json nao foi criado" "nao existe" \
   "$([ -f "$H/.claude/settings.json" ] && echo existe || echo 'nao existe')"
 
@@ -111,6 +113,44 @@ check "html no lugar do script: falha" 1 "$rc"
 contem "html no lugar do script: diz que nao instalou" "nada foi instalado" "$out"
 check "html no lugar do script: nada foi para o PATH" "nao existe" \
   "$([ -f "$H/.local/bin/workspace" ] && echo existe || echo 'nao existe')"
+
+printf '\n== agentes: Kiro, Codex e Claude Code na mesma instalacao ==\n'
+
+# O AGENTS.md do Codex e arquivo DA PESSOA e costuma ter instrucao dela dentro.
+# Sobrescrever seria apagar trabalho alheio, entao o bloco entra entre
+# marcadores — e o teste guarda conteudo antes E depois do bloco de proposito.
+H=$(mktemp -d); mkdir -p "$H/dev/api/.git" "$H/.claude" "$H/.kiro" "$H/.codex"
+printf '# Regras da pessoa\n\nSempre responder em portugues.\n' > "$H/.codex/AGENTS.md"
+out=$(HOME="$H" XDG_CONFIG_HOME="$H/.config" bash "$INSTALL" --with-agents 2>&1)
+contem "instala o steering do Kiro" "Kiro: steering em" "$out"
+contem "instala o bloco do Codex" "Codex: bloco em" "$out"
+contem "instala a skill do Claude Code" "Claude Code: skill em" "$out"
+check "steering do Kiro existe" "existe" \
+  "$([ -f "$H/.kiro/steering/workspace.md" ] && echo existe || echo 'nao existe')"
+contem "steering do Kiro tem o frontmatter" "inclusion: always" "$(cat "$H/.kiro/steering/workspace.md")"
+contem "AGENTS.md preservou o que era da pessoa" "Sempre responder em portugues" "$(cat "$H/.codex/AGENTS.md")"
+
+printf '\n== agentes: reinstalar nao duplica nem come o arquivo da pessoa ==\n'
+
+printf '\n# Rodape\n\nIsto vem depois do bloco.\n' >> "$H/.codex/AGENTS.md"
+for _ in 1 2 3; do
+  HOME="$H" XDG_CONFIG_HOME="$H/.config" bash "$INSTALL" --with-agents >/dev/null 2>&1
+done
+check "um unico bloco, nao quatro" "1" "$(grep -c 'workspace:inicio' "$H/.codex/AGENTS.md")"
+check "o texto anterior ao bloco continua la" "1" "$(grep -c 'Regras da pessoa' "$H/.codex/AGENTS.md")"
+check "o texto POSTERIOR ao bloco tambem" "1" "$(grep -c 'Isto vem depois do bloco' "$H/.codex/AGENTS.md")"
+check "steering do Kiro nao acumula frontmatter" "1" \
+  "$(grep -c '^name: workspace' "$H/.kiro/steering/workspace.md")"
+
+printf '\n== agentes: so mexe no que existe na maquina ==\n'
+
+H=$(mktemp -d); mkdir -p "$H/dev/api/.git" "$H/.kiro" # so o Kiro
+out=$(HOME="$H" XDG_CONFIG_HOME="$H/.config" bash "$INSTALL" --with-agents 2>&1)
+contem "instala o Kiro" "Kiro: steering em" "$out"
+nao_contem "nao inventa Codex" "Codex:" "$out"
+nao_contem "nao inventa Claude Code" "Claude Code:" "$out"
+check "nao criou ~/.codex do nada" "nao existe" \
+  "$([ -d "$H/.codex" ] && echo existe || echo 'nao existe')"
 
 printf '\n== Windows fora do WSL: recusa em vez de instalar meio funcionando ==\n'
 
