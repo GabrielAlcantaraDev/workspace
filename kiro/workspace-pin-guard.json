@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "workspace pin — guard (bash + writes)",
+      "trigger": "PreToolUse",
+      "description": "Grava o pino quando a sessão roda `workspace use <nome>` e bloqueia escrita/comando fora da demanda fixada.",
+      "matcher": "execute_bash|fs_write|fs_append|str_replace",
+      "action": {
+        "type": "command",
+        "command": "__HOOKS_DIR__/workspace-pin-hook.sh guard",
+        "timeout": 10
+      }
+    }
+  ]
+}

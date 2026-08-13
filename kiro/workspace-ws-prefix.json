@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "workspace — atalho ws (UserPromptSubmit)",
+      "trigger": "UserPromptSubmit",
+      "description": "Detecta mensagens começando com `ws` e injeta ordem explícita para executar o comando workspace correspondente.",
+      "action": {
+        "type": "command",
+        "command": "__HOOKS_DIR__/workspace-ws-prefix.sh",
+        "timeout": 5
+      }
+    }
+  ]
+}
