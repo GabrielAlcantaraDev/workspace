@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "workspace pin — restore on session start",
+      "trigger": "SessionStart",
+      "description": "Re-anuncia o pino da sessão (se houver) após restart do Kiro CLI, para o agente saber em qual demanda está.",
+      "action": {
+        "type": "command",
+        "command": "__HOOKS_DIR__/workspace-pin-hook.sh restore",
+        "timeout": 10
+      }
+    }
+  ]
+}

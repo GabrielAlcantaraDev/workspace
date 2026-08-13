@@ -19,6 +19,8 @@ SKILL_DIR="$HOME/.claude/skills/workspace"
 SETTINGS="$HOME/.claude/settings.json"
 
 KIRO_STEERING="$HOME/.kiro/steering/workspace.md"
+KIRO_HOOKS_SRC="$HOME/.local/share/workspace/kiro"
+KIRO_CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/workspace/config"
 CODEX_AGENTS="$HOME/.codex/AGENTS.md"
 
 WITH_AGENTS=ask
@@ -152,6 +154,81 @@ install_kiro() {
     cat "$body"
   } > "$KIRO_STEERING"
   rm -f "$body"
+}
+
+# ---- Kiro: hooks de pin para workspace-level.
+#
+# O Kiro CLI só carrega hooks de `.kiro/hooks/` dentro do cwd do projeto (não
+# de ~/.kiro/hooks/). A estratégia:
+#
+#   1. Instala os scripts .sh num local fixo (~/.local/share/workspace/kiro/)
+#   2. Gera os JSONs com caminho absoluto apontando para os scripts
+#   3. Copia JSONs + scripts para cada raiz de projeto em WORKSPACE_ROOTS
+#
+# Idempotente: se os arquivos já existem e estão atualizados, não toca.
+install_kiro_hooks() {
+  local f src dest roots_str root proj_kiro
+
+  [ -d "$HOME/.kiro" ] || return 1
+  command -v jq >/dev/null 2>&1 || {
+    printf '  ⚠  Kiro hooks: jq não encontrado — hooks não instalados\n'
+    printf '     Instale jq e rode novamente: sudo apt install jq (ou brew install jq)\n'
+    return 1
+  }
+
+  # 1. Copia scripts para local fixo
+  mkdir -p "$KIRO_HOOKS_SRC"
+  for f in workspace-pin-hook.sh workspace-ws-prefix.sh; do
+    fetch "kiro/$f" "$KIRO_HOOKS_SRC/$f" || return 1
+  done
+  chmod +x "$KIRO_HOOKS_SRC/workspace-pin-hook.sh" "$KIRO_HOOKS_SRC/workspace-ws-prefix.sh"
+
+  # 2. Gera JSONs com caminho absoluto resolvido
+  for f in workspace-pin-guard.json workspace-pin-restore.json workspace-ws-prefix.json; do
+    fetch "kiro/$f" "$KIRO_HOOKS_SRC/$f" || return 1
+    # sed -i não é portável (macOS vs Linux); usa tmp+mv.
+    local t
+    t=$(mktemp)
+    sed "s|__HOOKS_DIR__|$KIRO_HOOKS_SRC|g" "$KIRO_HOOKS_SRC/$f" > "$t"
+    mv "$t" "$KIRO_HOOKS_SRC/$f"
+  done
+
+  # 3. Propaga para cada raiz de projeto registrada em WORKSPACE_ROOTS
+  roots_str="${WORKSPACE_ROOTS:-}"
+  if [ -z "$roots_str" ] && [ -f "$KIRO_CONFIG_FILE" ]; then
+    roots_str=$(awk -F= '$1=="roots" { sub(/^[^=]*=/, ""); print; exit }' "$KIRO_CONFIG_FILE")
+  fi
+
+  if [ -z "$roots_str" ]; then
+    ok "Kiro hooks: scripts em $(printf '%s' "$KIRO_HOOKS_SRC" | sed "s|$HOME|~|")"
+    printf '     Para ativar num projeto, copie os hooks para a raiz dele:\n\n'
+    printf '       mkdir -p <projeto>/.kiro/hooks\n'
+    printf '       cp %s/*.json %s/*.sh <projeto>/.kiro/hooks/\n\n' \
+      "$(printf '%s' "$KIRO_HOOKS_SRC" | sed "s|$HOME|~|")" \
+      "$(printf '%s' "$KIRO_HOOKS_SRC" | sed "s|$HOME|~|")"
+    printf '     Ou rode "workspace setup" e reinstale — os hooks vão para todos os projetos.\n'
+    return 0
+  fi
+
+  local installed=0
+  IFS=':' read -ra roots_arr <<< "$roots_str"
+  for root in "${roots_arr[@]}"; do
+    [ -d "$root" ] || continue
+    proj_kiro="$root/.kiro/hooks"
+    mkdir -p "$proj_kiro"
+    for f in workspace-pin-guard.json workspace-pin-restore.json workspace-ws-prefix.json \
+             workspace-pin-hook.sh workspace-ws-prefix.sh; do
+      cp "$KIRO_HOOKS_SRC/$f" "$proj_kiro/$f"
+    done
+    chmod +x "$proj_kiro/workspace-pin-hook.sh" "$proj_kiro/workspace-ws-prefix.sh"
+    installed=$((installed + 1))
+  done
+
+  if [ "$installed" -gt 0 ]; then
+    ok "Kiro hooks: instalados em $installed raiz(es) de projeto"
+  else
+    ok "Kiro hooks: scripts em $(printf '%s' "$KIRO_HOOKS_SRC" | sed "s|$HOME|~|") (nenhuma raiz de projeto encontrada)"
+  fi
 }
 
 # ---- Codex: bloco delimitado dentro do AGENTS.md global.
@@ -320,6 +397,7 @@ if [ -n "$achados" ]; then
       else
         printf '  ⚠  Kiro: não consegui escrever o steering\n'
       fi
+      install_kiro_hooks
     fi
 
     if [ -d "$HOME/.codex" ]; then

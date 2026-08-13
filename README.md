@@ -160,7 +160,7 @@ mexe no que já existe na máquina:
 | Agente | O que ele instala | Onde |
 |---|---|---|
 | Claude Code | a skill `/workspace` + hooks de fixação de aba | `~/.claude/skills/workspace/` |
-| Kiro | um steering carregado sempre | `~/.kiro/steering/workspace.md` |
+| Kiro | steering + hooks de fixação de aba (pin) | `~/.kiro/steering/` + `<projeto>/.kiro/hooks/` |
 | Codex | um bloco delimitado no AGENTS.md global | `~/.codex/AGENTS.md` |
 
 Os três compartilham o mesmo texto de instrução ([agents/workspace.md](agents/workspace.md)),
@@ -176,6 +176,11 @@ bloco.
 aquela conversa na demanda, e um hook passa a negar escrita fora dela — útil
 quando você tem quatro conversas abertas. Isso depende de mecanismo que só
 existe no Claude Code.
+
+**Kiro CLI também ganha a fixação de aba.** O mesmo conceito do Claude Code,
+adaptado para o sistema de hooks v2 do Kiro. O `install.sh` instala os hooks
+em cada raiz de projeto registrada (necessário porque o Kiro só lê hooks no
+nível do workspace, não no nível do usuário). Detalhes em [kiro/INSTALL.md](kiro/INSTALL.md).
 
 Quem não usa agente nenhum ignora essa seção: o comando de terminal é a
 ferramenta inteira e não depende disso em nada.
