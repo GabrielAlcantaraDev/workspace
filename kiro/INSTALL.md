@@ -108,6 +108,74 @@ Exceções:
 workspace use none
 ```
 
+## Uso no Kiro CLI
+
+### Atalho `ws`
+
+O hook `workspace-ws-prefix` intercepta qualquer mensagem que comece com `ws`
+e injeta a ordem para o agente executar o comando `workspace` correspondente.
+Não precisa digitar `workspace` por extenso:
+
+| Você digita | O agente executa |
+|---|---|
+| `ws` | `workspace list` |
+| `ws list` | `workspace list` |
+| `ws repos` | `workspace repos` |
+| `ws status` | `workspace status` |
+| `ws status bug-142` | `workspace status bug-142` |
+| `ws bug-142 api web` | `workspace create --name bug-142 api web` |
+| `ws use bug-142` | `workspace use bug-142` |
+| `ws use none` | `workspace use none` |
+| `ws start bug-142` | `workspace start bug-142` |
+| `ws stop bug-142` | `workspace stop bug-142` |
+| `ws down bug-142` | `workspace down bug-142` |
+| `ws help` | `workspace help` |
+| `ws doctor` | `workspace doctor` |
+
+### Criar um workspace (sem abrir editor)
+
+No Kiro CLI a sessão é terminal — não há editor gráfico para abrir. Use
+`--no-open` para pular a abertura do VSCode:
+
+```
+workspace create --name minha-feature api front --no-open
+```
+
+Isso cria os worktrees, copia envs, instala dependências — tudo sem tocar no
+editor.
+
+### Fixar a sessão (pin)
+
+```
+workspace use minha-feature
+```
+
+Depois disso:
+- O agente trabalha apenas dentro de `~/workspaces/minha-feature/`
+- Escrita em outro workspace é **bloqueada** pelo hook (exit 2)
+- Comandos `workspace` (status, stop, down) de outras demandas continuam passando
+
+### Soltar a sessão
+
+```
+workspace use none
+```
+
+### Multi-repo no mesmo workspace
+
+Crie listando todos os repos:
+
+```
+workspace create --name sprint-42 api front worker --no-open
+```
+
+O pin dá acesso a **todos** os repos daquele workspace na mesma sessão de chat.
+
+### Importante: não rode `workspace start` só para testar
+
+O `start` sobe os apps com `.env` de verdade — credenciais de provedor podem
+disparar e-mails, SMS e cobranças reais. Só suba quando for trabalhar de fato.
+
 ## Verificação
 
 Depois de instalar, confirme que está tudo certo:
