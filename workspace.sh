@@ -66,7 +66,7 @@ MINGW* | MSYS* | CYGWIN*)
   ;;
 esac
 
-VERSION="1.1.0"
+VERSION="1.1.1"
 RAW_URL="${WORKSPACE_RAW_URL:-https://raw.githubusercontent.com/GabrielAlcantaraDev/workspace/main}"
 
 die() { printf '\n  ✗ %s\n' "$*" >&2; exit 1; }
