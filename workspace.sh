@@ -605,11 +605,35 @@ install_deps() {
     warn "$repo precisa de ${cmd[0]}, que não está instalado — instale as dependências na mão"
     return 0
   fi
-  if (cd "$dir" && "${cmd[@]}" >/dev/null 2>&1); then
-    printf '    %-20s %s ✓\n' '' "${cmd[*]}"
-  else
-    warn "$repo: ${cmd[*]} falhou — rode na mão em $dir"
+  # Dependência em registry privado (GitHub Packages, via `${NODE_AUTH_TOKEN}`
+  # no .npmrc) não resolve sem token, e o install falha inteiro por causa dela:
+  # o worktree nasce sem node_modules nenhum. Quem já exportou o seu manda;
+  # senão vale o do gh, que é o mesmo login que acabou de clonar o repositório.
+  local token=${NODE_AUTH_TOKEN:-}
+  if [ -z "$token" ] && command -v gh >/dev/null 2>&1; then
+    token=$(gh auth token 2>/dev/null) || token=''
   fi
+  local -a pre=()
+  [ -n "$token" ] && pre=(env "NODE_AUTH_TOKEN=$token")
+
+  local saida rc=0
+  saida=$(cd "$dir" && "${pre[@]}" "${cmd[@]}" 2>&1) || rc=$?
+  if [ "$rc" -eq 0 ]; then
+    printf '    %-20s %s ✓\n' '' "${cmd[*]}"
+    return 0
+  fi
+
+  # A saída era jogada no /dev/null, e aí 401 de registry privado, rede caída e
+  # lockfile fora de sincronia viravam a mesma frase. O token sai do texto por
+  # precaução: já houve versão de npm que o repetia na mensagem de erro.
+  warn "$repo: ${cmd[*]} falhou — rode na mão em $dir"
+  printf '%s\n' "$saida" | tail -n 15 |
+    awk -v t="$token" '{ if (t != "") gsub(t, "«token»"); print "       " $0 }'
+  case $saida in
+  *401* | *403* | *ENEEDAUTH* | *Unauthorized*)
+    warn "parece falta de escopo no registry — rode 'gh auth refresh -h github.com -s read:packages' e tente de novo"
+    ;;
+  esac
 }
 
 # Estado do git logo depois do provisionamento. O que a instalação escreveu na
